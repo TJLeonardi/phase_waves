@@ -50,7 +50,7 @@ def plot1D_frame(model,t,save=True):
     #title = r'1D_bc{}_{}_{}_{}'.format(val, t, model.sigma, model.eta)
     title = get_title(model,variable='phase') + r'_t={}'.format(t)
     if save:
-        plt.savefig(title + '.png')
+        plt.savefig('frames/' +title + '.png')
     plt.show()
 
 def plot2D_frame(t,model,save=True):
@@ -80,7 +80,7 @@ def plot2D_frame(t,model,save=True):
     #title = r'2D_tse_{}_{}_{}'.format(t,model.sigma, model.eta)
     title = get_title(model, variable='phase') + r'_t={}'.format(t)
     if save:
-        plt.savefig(title + '.png')
+        plt.savefig('frames/' + title + '.png')
     plt.show()
 
 
@@ -198,7 +198,7 @@ def animate(model,rem,variable='phase'):
     title = get_title(model, variable)
     if rem:
         title = title + '_alt'
-    anim.save('anim/' + title + '.mp4', fps=25, extra_args=['-vcodec', 'libx264'])
+    anim.save('animations/' + title + '.mp4', fps=25, extra_args=['-vcodec', 'libx264'])
     return title
 
 def get_title(model,variable='phase'):
