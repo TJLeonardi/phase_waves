@@ -198,7 +198,8 @@ def animate(model,rem,variable='phase'):
     title = get_title(model, variable)
     if rem:
         title = title + '_alt'
-    anim.save(title +'.mp4', fps=25, extra_args=['-vcodec', 'libx264'])
+    anim.save('anim/' + title + '.mp4', fps=25, extra_args=['-vcodec', 'libx264'])
+    return title
 
 def get_title(model,variable='phase'):
     if model.bc == 'grad':

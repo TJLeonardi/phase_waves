@@ -300,3 +300,16 @@ def setup():
         os.mkdir('animations')
     if not 'frames' in dirs:
         os.mkdir('frames')
+
+def read(title):
+    '''Opens specified data file containing simulation details and phase values'''
+    return pickle.load(open('data/' + title +'.p', 'rb'))
+
+def set_model(title):
+    file = read(title)
+    uploaded = Kuramoto(file['stats']['tmax'], file['stats']['N'],file['stats']['M'],file['stats']['sigma'],
+                        file['stats']['eta'],file['stats']['bc'],file['stats']['grad'])
+    uploaded.omegas = file['omegas']
+    uploaded.theta = file['theta']
+    uploaded.title = title
+    return uploaded

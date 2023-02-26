@@ -13,24 +13,13 @@ import analyse
 import visualise
 
 
-def read(title):
-    '''Opens specified data file containing simulation details and phase values'''
-    return pickle.load(open('data/' + title +'.p', 'rb'))
 
-def set_model(title):
-    file = read(title)
-    uploaded = agent.Kuramoto(file['stats']['tmax'], file['stats']['N'],file['stats']['M'],file['stats']['sigma'],
-                        file['stats']['eta'],file['stats']['bc'],file['stats']['grad'])
-    uploaded.omegas = file['omegas']
-    uploaded.theta = file['theta']
-    uploaded.title = title
-    return uploaded
 
-def todo(tmax, sigma, eta, bc, grad, shape):
+def todo(tmax, sigma, eta, bc, grad, dim):
     t_max = tmax
     length = 128
     # length= 64
-    if shape == '2D':
+    if dim == '2D':
         height = 128
         model = agent.Kuramoto(t_max, height, length, sigma, eta, bc, grad)
         model.solve(dim=2)
@@ -38,7 +27,7 @@ def todo(tmax, sigma, eta, bc, grad, shape):
         model.save()
         visualise.plot2D_frame(model.tmax - 2, model)
         print('2D saved')
-    elif shape == 'q2D':
+    elif dim == 'q2D':
         height = 20
         model = agent.Kuramoto(t_max, height, length, sigma, eta, bc, grad)
         model.solve(dim=2)
@@ -46,7 +35,7 @@ def todo(tmax, sigma, eta, bc, grad, shape):
         model.save()
         visualise.plot2D_frame(model.tmax - 2, model)
         print('2D saved')
-    elif shape == '1D':
+    elif dim == '1D':
         model = agent.Kuramoto(t_max, length, 1, sigma, eta, bc, grad)
         model.solve()
         print('1D solved')
@@ -68,7 +57,7 @@ def custom():
 
 
 def remove_harmonics(filename):
-    analyse.remove_harmonic(read(filename), set_model(filename))
+    analyse.remove_harmonic(agent.read(filename), agent.set_model(filename))
 
 
 tmax = 1000
