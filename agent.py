@@ -290,3 +290,13 @@ def shift(phases, tol=1):
                 phases[i+1:] += np.pi*2
             else:
                 phases[i+1:] -= np.pi*2
+
+
+def setup():
+    dirs = os.listdir()
+    if not 'data' in dirs:
+        os.mkdir('data')
+    if not 'animations' in dirs:
+        os.mkdir('animations')
+    if not 'frames' in dirs:
+        os.mkdir('frames')

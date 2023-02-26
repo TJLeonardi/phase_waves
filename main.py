@@ -100,8 +100,8 @@ for i in [0]:
 
 
 
-model =todo(tmax,0,0.2,'fix',[0,0],'q2D')[1]
+model = todo(100,0.1,0.02,'fix',[0,0],'q2D')[1]
 visualise.animate(model,False,'phase')
-model.find_vorticity()
-visualise.animate(model,False,'vorticity')
-analyse.plot_vd(model)
+#model.find_vorticity()
+#visualise.animate(model,False,'vorticity')
+#analyse.plot_vd(model)

@@ -29,14 +29,17 @@ def plot1D_frame(model,t,save=True):
     axs[1].set_title('space time graph of phase evolution $\sigma={}, \eta ={}$'.format(model.sigma, model.eta))
 
     #plt.legend()
-    if model.grad == [1, 1]:
-        val = 'A'
-    elif model.grad == [-1, 1]:
-        val = 'B'
-    elif model.grad == [1, -1]:
-        val = 'C'
-    elif model.grad == [0, 0] and model.bc == 'grad':
-        val = 'D'
+    if model.bc == 'grad':
+        if model.grad == [1, 1]:
+            val = 'A'
+        elif model.grad == [-1, 1]:
+            val = 'B'
+        elif model.grad == [1, -1]:
+            val = 'C'
+        elif model.grad == [0, 0]:
+            val = 'D'
+        else:
+            val = 'grad'
     elif model.bc == 'fix':
         val = 'fix'
     elif model.bc == 'periodic':
@@ -44,7 +47,8 @@ def plot1D_frame(model,t,save=True):
     else:
         print('Error bc not present')
         return
-    title = r'1D_bc{}_{}_{}_{}'.format(val, t, model.sigma, model.eta)
+    #title = r'1D_bc{}_{}_{}_{}'.format(val, t, model.sigma, model.eta)
+    title = get_title(model,variable='phase') + r'_t={}'.format(t)
     if save:
         plt.savefig(title + '.png')
     plt.show()
@@ -74,6 +78,7 @@ def plot2D_frame(t,model,save=True):
         return
     title = r'2D_bc{}_{}_{}_{}'.format(val, t, model.sigma, model.eta)
     #title = r'2D_tse_{}_{}_{}'.format(t,model.sigma, model.eta)
+    title = get_title(model, variable='phase') + r'_t={}'.format(t)
     if save:
         plt.savefig(title + '.png')
     plt.show()
@@ -189,11 +194,30 @@ def animate(model,rem,variable='phase'):
         val = 'p'
     else:
         val = 'custom'
-    title = r'2Danim_{}_{}_{}_{}'.format(variable, val, model.sigma, model.eta)
-
+    #title = r'2Danim_{}_{}_{}_{}'.format(variable, val, model.sigma, model.eta)
+    title = get_title(model, variable)
     if rem:
         title = title + '_alt'
     anim.save(title +'.mp4', fps=25, extra_args=['-vcodec', 'libx264'])
 
-
-
+def get_title(model,variable='phase'):
+    if model.bc == 'grad':
+        if model.grad == [1, 1]:
+            val = 'A'
+        elif model.grad == [-1, 1]:
+            val = 'B'
+        elif model.grad == [1, -1]:
+            val = 'C'
+        elif model.grad == [0, 0]:
+            val = 'D'
+        else:
+            val = 'grad'
+    elif model.bc == 'fix':
+        val = 'fix'
+    elif model.bc == 'periodic':
+        val = 'p'
+    else:
+        print('Error bc not present')
+        return
+    title = r'{}_{}_bc{}_{}_{}'.format(model.dim,variable,val, model.sigma, model.eta)
+    return title
