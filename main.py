@@ -13,15 +13,13 @@ import analyse
 import visualise
 
 
-
-
 def todo(tmax, sigma, eta, bc, grad, dim):
     t_max = tmax
     length = 128
     # length= 64
     if dim == '2D':
         height = 128
-        model = agent.Kuramoto(t_max, height, length, sigma, eta, bc, grad)
+        model = agent.Kuramoto(t_max, height, length, sigma, eta, bc, grad,dim)
         model.solve(dim=2)
         print('2D solved')
         model.save()
@@ -29,14 +27,14 @@ def todo(tmax, sigma, eta, bc, grad, dim):
         print('2D saved')
     elif dim == 'q2D':
         height = 20
-        model = agent.Kuramoto(t_max, height, length, sigma, eta, bc, grad)
+        model = agent.Kuramoto(t_max, height, length, sigma, eta, bc, grad,dim)
         model.solve(dim=2)
         print('2D solved')
         model.save()
         visualise.plot2D_frame(model.tmax - 2, model)
         print('2D saved')
     elif dim == '1D':
-        model = agent.Kuramoto(t_max, length, 1, sigma, eta, bc, grad)
+        model = agent.Kuramoto(t_max, length, 1, sigma, eta, bc, grad,dim)
         model.solve()
         print('1D solved')
         model.save()
@@ -88,9 +86,14 @@ for i in [0]:
 #plt.show()
 
 
-
-model = todo(100,0.1,0.02,'fix',[0,0],'q2D')[1]
-visualise.animate(model,False,'phase')
+#model = todo(500,0.2,0,'grad',[1,1],'1D')[1]
+#visualise.animate(model,False,'phase')
+#analyse.plotvcorr(model)
+#analyse.plotpcorr(model)
+reps = agent.Repeats(5,10000,128,1,0,0,'grad',[1,1],'1D')
+reps.create()
+reps.averagetheta()
+visualise.plot_avg(reps,99)
 #model.find_vorticity()
 #visualise.animate(model,False,'vorticity')
 #analyse.plot_vd(model)

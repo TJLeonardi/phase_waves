@@ -44,3 +44,75 @@ def plot_vd(model):
     axs[0].plot(y.T[0])
     axs[1].plot(y.T[1])
     plt.show()
+
+def pcorr_t(model,t):
+    phases = model.theta.T[t].reshape((model.N,model.M)) % (2*np.pi)
+    if model.dim == '1D':
+        corr_t = np.zeros(len(phases))
+        for r in range(len(phases)):
+            diffs = 0
+            for i in range(len(phases) - r):
+                diffs += ((phases[i] - phases[i + r]) % (2 * np.pi))
+                corr_r = diffs / len(phases)
+            corr_t[r] = corr_r
+        return np.array(corr_t)
+
+
+def pcorr(model):
+    corrs = np.array([np.zeros(model.N) for i in range(model.tmax - 1)])
+    for t in range(model.tmax - 1):
+        corrs[t] = pcorr_t(model, t)
+    print(corrs.shape)
+    corr_r = np.sum(corrs, axis=0) / model.tmax
+    return corr_r
+
+
+def plotpcorr(model):
+    y = pcorr(model)
+    plt.plot(y)
+    plt.title('p')
+    plt.show()
+
+def vcorr_t(model,t):
+    v_t = (model.theta.T[t+1].reshape((model.N,model.M))- model.theta.T[t].reshape((model.N,model.M))) #% (2*np.pi)
+    if model.dim == '1D':
+        corr_t = np.zeros(len(v_t))
+        for r in range(len(v_t)):
+            diffs = 0
+            for i in range(len(v_t)-r):
+                diffs += ((v_t[i]-v_t[i+r])) #% (2*np.pi))
+            corr_r = diffs/len(v_t)
+            corr_t[r] = corr_r
+    else:
+        return
+    if t == model.tmax -5:
+        plt.plot(corr_t)
+        plt.title(t)
+        plt.show()
+    return np.array(corr_t)
+
+
+def vcorr(model):
+    corrs =np.array([np.zeros(model.N) for i in range(model.tmax-1)])
+    for t in range(model.tmax-1):
+        corrs[t] = vcorr_t(model,t)
+    print(corrs.shape)
+    corr_r = np.sum(corrs,axis=0)/model.tmax
+    return corr_r
+
+def plotvcorr(model):
+    y = vcorr(model)
+    plt.plot(y)
+    plt.title('v')
+    plt.show()
+    return
+
+def vdist_t(model,t):
+    v_t = (model.theta.T[t + 1].reshape((model.N, model.M)) - model.theta.T[t].reshape((model.N, model.M))) % (
+                2 * np.pi)
+    return
+
+def averagephase(filelist):
+    models = []
+    for i in range(len(filelist)):
+        models.append(agent.set_model(filelist[i]))

@@ -4,9 +4,11 @@ import pickle
 import os
 from datetime import datetime
 
+import visualise
+
 
 class Kuramoto:
-    def __init__(self, tmax, N, M=1, sigma=0.43, eta=0.04, bc='fix', grad=None, dim='q2D',init='rand'):
+    def __init__(self, tmax, N, M=1, sigma=0.43, eta=0.04, bc='fix', grad=None, dim='Unspecified',init='rand'):
         if grad is None:
             grad = [0, 0]
         self.N = N
@@ -85,10 +87,10 @@ class Kuramoto:
         j_minus = np.roll(theta, -1, axis=1)
         i_plus = np.roll(theta, 1, axis=0)
         i_minus = np.roll(theta, -1, axis=0)
-        a1 = self.K_phi(j_plus - theta)
-        a2 = self.K_phi(j_minus - theta)
-        a3 = self.K_phi(i_plus - theta)
-        a4 = self.K_phi(i_minus - theta)
+        a1 = self.K_phi(j_plus - theta) # coupling to the left
+        a2 = self.K_phi(j_minus - theta) # coupling to the right
+        a3 = self.K_phi(i_plus - theta) # coupling above
+        a4 = self.K_phi(i_minus - theta) # coupling below
         y = a1 + a2 + a3 + a4 + self.omegas
         if self.bc == 'all_fix':
             y[0, :] = 0
@@ -100,8 +102,8 @@ class Kuramoto:
             y[:, 0] = 0
             y[:, -1] = 0
         elif self.bc == 'grad':
-            y[:, 0] = self.omegas[:, 0] + (self.K_phi(-self.grad[0]) + self.K_phi(theta[:, 1] - theta[:, 0]))
-            y[:, -1] = self.omegas[:, -1] + (self.K_phi(self.grad[1]) + self.K_phi(theta[:, -2] - theta[:, -1]))
+            y[:, 0] = self.omegas[:, 0] + (self.K_phi(-self.grad[0]) + self.K_phi(theta[:, 1] - theta[:, 0])) + a3[:,0] + a4[:,0]
+            y[:, -1] = self.omegas[:, -1] + (self.K_phi(self.grad[1]) + self.K_phi(theta[:, -2] - theta[:, -1])) + a3[:,-1] + a4[:,-1]
         elif self.bc == 'custom':
             y[:, 0] = 0
             y[:, -1] = 0
@@ -300,6 +302,8 @@ def setup():
         os.mkdir('animations')
     if not 'frames' in dirs:
         os.mkdir('frames')
+    if not 'corrs' in dirs:
+        os.mkdir('corrs')
 
 def read(title):
     '''Opens specified data file containing simulation details and phase values'''
@@ -313,3 +317,42 @@ def set_model(title):
     uploaded.theta = file['theta']
     uploaded.title = title
     return uploaded
+
+
+class Repeats:
+    def __init__(self,number, tmax,N,M,sigma,eta,bc,grad,dim):
+        self.repeats = []
+        self.number = number
+        if grad is None:
+            grad = [0, 0]
+        self.N = N
+        self.M = M
+        self.tmax = tmax
+        self.sigma = sigma
+        self.eta = eta
+        self.bc = bc
+        self.grad = grad
+        self.dim = dim
+        self.avgtheta = np.zeros([tmax,N * M])
+        self.omegas = np.random.normal(0, sigma, [N, M])
+
+    def create(self):
+        for i in range(self.number):
+            repeat = Kuramoto(self.tmax,self.N,self.M,self.sigma,self.eta,self.bc,self.grad,self.dim)
+            repeat.omegas = self.omegas
+            repeat.solve(dim=1)
+            self.repeats.append(repeat)
+        return
+
+    def averagetheta(self):
+        for i in range(self.number):
+                self.avgtheta += self.repeats[i].theta.T  # %(2*np.pi)
+        self.avgtheta = self.avgtheta/self.number
+        return
+
+
+    def ploteach(self):
+        for i in range(self.number):
+            visualise.plot1D_frame(self.repeats[i], self.tmax-5)
+        return
+

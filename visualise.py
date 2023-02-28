@@ -27,27 +27,6 @@ def plot1D_frame(model,t,save=True):
     axs[1].set_xlabel('$x$')
     axs[1].set_ylabel('$t$')
     axs[1].set_title('space time graph of phase evolution $\sigma={}, \eta ={}$'.format(model.sigma, model.eta))
-
-    #plt.legend()
-    if model.bc == 'grad':
-        if model.grad == [1, 1]:
-            val = 'A'
-        elif model.grad == [-1, 1]:
-            val = 'B'
-        elif model.grad == [1, -1]:
-            val = 'C'
-        elif model.grad == [0, 0]:
-            val = 'D'
-        else:
-            val = 'grad'
-    elif model.bc == 'fix':
-        val = 'fix'
-    elif model.bc == 'periodic':
-        val = 'p'
-    else:
-        print('Error bc not present')
-        return
-    #title = r'1D_bc{}_{}_{}_{}'.format(val, t, model.sigma, model.eta)
     title = get_title(model,variable='phase') + r'_t={}'.format(t)
     if save:
         plt.savefig('frames/' +title + '.png')
@@ -61,22 +40,7 @@ def plot2D_frame(t,model,save=True):
     #plt.colorbar(im2,orientation= "horizontal")
     cbar = plt.colorbar(im2, ticks=[0, np.pi, 2 * np.pi], orientation='horizontal')
     cbar.set_ticklabels([r'$0$', r'$\pi$', r'$2\pi$'])
-    if model.grad == [1,1]:
-        val = 'A'
-    elif model.grad == [-1,1]:
-        val = 'B'
-    elif model.grad == [1,-1]:
-        val = 'C'
-    elif model.grad == [0, 0] and model.bc == 'grad':
-        val = 'D'
-    elif model.bc == 'fix':
-        val = 'fix'
-    elif model.bc == 'periodic':
-        val = 'p'
-    else:
-        print('Error bc not present')
-        return
-    title = r'2D_bc{}_{}_{}_{}'.format(val, t, model.sigma, model.eta)
+
     #title = r'2D_tse_{}_{}_{}'.format(t,model.sigma, model.eta)
     title = get_title(model, variable='phase') + r'_t={}'.format(t)
     if save:
@@ -97,6 +61,30 @@ def plot_branch(t,model,save=True):
     cbar = plt.colorbar(im1, ticks=[0, np.pi, 2 * np.pi], orientation='horizontal')
     cbar.set_ticklabels([r'$0$', r'$\pi$', r'$2\pi$'])
     plt.show()
+
+def plot_avg(repeats,t):
+    fig, axs = plt.subplots(1, 2)
+    fig.set_figheight(7)
+    fig.set_figwidth(15)
+    phases = repeats.avgtheta[t]
+    #agent.shift(phases)
+    axs[0].plot(phases)
+    axs[0].set_xlabel('$x$')
+    axs[0].set_ylabel('$\Theta$')
+    axs[0].set_title(r'spatial phase distribution $t={}$, $\sigma={}, \eta ={}, bc ={}$'.format(t, repeats.sigma, repeats.eta,
+                                                                                   repeats.grad))
+
+    im1 = axs[1].imshow(repeats.avgtheta % (2 * np.pi), cmap='twilight', aspect='auto', interpolation='none')
+    # plt.colorbar(im1,orientation='vertical')
+    cbar = fig.colorbar(im1, ticks=[0, np.pi, 2 * np.pi], orientation='vertical')
+    cbar.set_ticklabels([r'$0$', r'$\pi$', r'$2\pi$'])
+    axs[1].set_xlabel('$x$')
+    axs[1].set_ylabel('$t$')
+    axs[1].set_title('space time graph of phase evolution $\sigma={}, \eta ={}$'.format(repeats.sigma, repeats.eta))
+    plt.show()
+
+    return
+
 
 def plot2D_frame_compare(t,model,save=True):
     fig = plt.figure(figsize=(8, 8))
