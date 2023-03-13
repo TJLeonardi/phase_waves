@@ -86,14 +86,18 @@ for i in [0]:
 #plt.show()
 
 
-#model = todo(500,0.2,0,'grad',[1,1],'1D')[1]
+#model = todo(300,0.6,1.1,'grad',[0,0],'q2D')[1]
+model = agent.set_model('data_q2D_D_0.6_1.1_0')
 #visualise.animate(model,False,'phase')
 #analyse.plotvcorr(model)
 #analyse.plotpcorr(model)
-reps = agent.Repeats(5,10000,128,1,0,0,'grad',[1,1],'1D')
-reps.create()
-reps.averagetheta()
-visualise.plot_avg(reps,99)
-#model.find_vorticity()
+#reps = agent.Repeats(5,10000,128,1,0,0,'grad',[1,1],'1D')
+#reps.create()
+#reps.averagetheta()
+#visualise.plot_avg(reps,99)
+#visualise.animate(model,False,'phase')
 #visualise.animate(model,False,'vorticity')
 #analyse.plot_vd(model)
+#analyse.vorsites(model,179)
+analyse.interdistances_multiframe(model,0,model.tmax)
+#analyse.plot_m(model)

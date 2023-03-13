@@ -3,7 +3,6 @@ from scipy.integrate import solve_ivp
 import pickle
 import os
 from datetime import datetime
-
 import visualise
 
 
@@ -35,8 +34,6 @@ class Kuramoto:
             self.omegas = np.random.normal(0, sigma, [2,N, M])
             for i in range(len(self.circumference)):
                 self.omegas[0][self.circumference[i][0]][self.circumference[i][1]] = self.omegas[1][i][0]
-
-
 
         # self.theta[0] = theta0
 
@@ -189,19 +186,23 @@ class Kuramoto:
         return
 
     def save(self):
-        stats = {'N': self.N, 'M': self.M, 'tmax': self.tmax, 'sigma': self.sigma,
-                 'eta': self.eta, 'bc': self.bc, 'grad': self.grad, 'dim':self.dim}
-        print(stats)
-        data = {'stats': stats, 'omegas': self.omegas, 'theta': self.theta}
+        title = visualise.get_title(self, 'data')
         date = datetime.today().strftime('%Y%m%d')
         files = os.listdir('data')
         files.sort()
         count = 0
         for file in files:
-            if file[:8] == date:
+            if title == file[:-4]:
                 count += 1
         title = r'{}_c{}_{}_{}'.format(date, count, self.sigma, self.eta)
+        title = self.find_title()
         self.title = title
+
+        stats = {'N': self.N, 'M': self.M, 'tmax': self.tmax, 'sigma': self.sigma,
+                 'eta': self.eta, 'bc': self.bc, 'grad': self.grad, 'dim': self.dim, 'count':self.count}
+        print(stats)
+
+        data = {'stats': stats, 'omegas': self.omegas, 'theta': self.theta}
         pickle.dump(data, open('data/' + title + '.p', "wb"))
         return
 
@@ -214,6 +215,19 @@ class Kuramoto:
 
     def pick(self, t):
         return np.transpose(self.theta)[t] % (2 * np.pi)
+
+    def find_title(self):
+        title = visualise.get_title(self,'data')
+        chars = len(list(title))
+        files = os.listdir('data')
+        files.sort()
+        count = 0
+        for file in files:
+            if file[:chars] == title:
+                count += 1
+        title = title + '_' + str(count)
+        self.count = count
+        return title
 
     def find_circumference(self):
         theta, branch = self.theta.reshape(2, self.N * self.M)
@@ -268,8 +282,21 @@ class Kuramoto:
             theta = np.reshape(self.theta.T[t], (self.N, self.M))
             self.v_x[t] = theta - np.roll(theta, 1, axis=1)
             self.v_y[t] = theta - np.roll(theta, 1, axis=0)
-            self.vorticity[t] = (self.v_y[t] - np.roll(self.v_y[t],1,axis=1)) - (self.v_x[t] - np.roll(self.v_x[t],1,axis=1))
-            #self.vorticity[t] = self.vorticity[t] - self.vorticity[0]
+            self.v_x[t][:,0] = 0 #np.array([self.grad[0] for i in range(len(theta[:,0]))])
+            #self.v_y[t][0,:] = 0
+            self.vorticity[t] = (self.v_y[t] - np.roll(self.v_y[t],1,axis=1)) - (self.v_x[t] - np.roll(self.v_x[t],1,axis=0))
+            ##self.vorticity[t] = self.vorticity[t] - self.vorticity[0]
+
+
+    def find_vorticity_2(self):
+        for t in range(self.tmax):
+            theta = np.reshape(self.theta.T[t], (self.N, self.M))
+            self.v_x[t] = np.angle(np.exp(1j*(theta - np.roll(theta, 1, axis=1))))
+            self.v_y[t] = np.angle(np.exp(1j*(theta - np.roll(theta, 1, axis=0))))
+            self.v_x[t][:, 0] = np.array([self.grad[0] for i in range(len(theta[:,0]))])
+            # self.v_y[t][0,:] = 0
+            self.vorticity[t] = (self.v_y[t] - np.roll(self.v_y[t], 1, axis=1)) - (
+                        self.v_x[t] - np.roll(self.v_x[t], 1, axis=0))
    # def omega(self, t):
    #     theta = self.pick(t)
    #     shift(theta)
@@ -304,6 +331,8 @@ def setup():
         os.mkdir('frames')
     if not 'corrs' in dirs:
         os.mkdir('corrs')
+    if not '2Dmeasures':
+        os.mkdir('2Dmeasures')
 
 def read(title):
     '''Opens specified data file containing simulation details and phase values'''
@@ -312,10 +341,12 @@ def read(title):
 def set_model(title):
     file = read(title)
     uploaded = Kuramoto(file['stats']['tmax'], file['stats']['N'],file['stats']['M'],file['stats']['sigma'],
-                        file['stats']['eta'],file['stats']['bc'],file['stats']['grad'])
+                        file['stats']['eta'],file['stats']['bc'],file['stats']['grad'],file['stats']['dim'])
     uploaded.omegas = file['omegas']
     uploaded.theta = file['theta']
+    uploaded.count = file['stats']['count']
     uploaded.title = title
+    print('Model set')
     return uploaded
 
 

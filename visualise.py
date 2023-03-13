@@ -27,7 +27,7 @@ def plot1D_frame(model,t,save=True):
     axs[1].set_xlabel('$x$')
     axs[1].set_ylabel('$t$')
     axs[1].set_title('space time graph of phase evolution $\sigma={}, \eta ={}$'.format(model.sigma, model.eta))
-    title = get_title(model,variable='phase') + r'_t={}'.format(t)
+    title = get_title(model,variable='phase',count=model.count) + r'_t={}'.format(t)
     if save:
         plt.savefig('frames/' +title + '.png')
     plt.show()
@@ -42,7 +42,7 @@ def plot2D_frame(t,model,save=True):
     cbar.set_ticklabels([r'$0$', r'$\pi$', r'$2\pi$'])
 
     #title = r'2D_tse_{}_{}_{}'.format(t,model.sigma, model.eta)
-    title = get_title(model, variable='phase') + r'_t={}'.format(t)
+    title = get_title(model, variable='phase',count=model.count) + r'_t={}'.format(t)
     if save:
         plt.savefig('frames/' + title + '.png')
     plt.show()
@@ -131,8 +131,9 @@ def animate(model,rem,variable='phase'):
     elif variable == 'branch':
         a0,b0 = model.theta.T[0].reshape(2,model.N, model.M) %(2*np.pi)
     elif variable == 'vorticity':
+        model.find_vorticity_2()
         a0 = model.vorticity[0]
-        a = model.vorticity % (2 * np.pi)
+        a = model.vorticity# % (2 * np.pi)
     elif variable == 'v_x':
         a0 = model.v_x[0]
         a = model.v_x
@@ -148,6 +149,8 @@ def animate(model,rem,variable='phase'):
         fig, axs = plt.subplots(2)
         im = axs[0].imshow(a0, cmap='twilight', vmin=0, vmax=2*np.pi, interpolation='none')
         im2 = axs[1].imshow(b0, cmap='twilight', vmin=0, vmax=2*np.pi, interpolation='none')
+    elif variable == 'vorticity':
+        im = plt.imshow(a0, cmap='PiYG',  interpolation='none')
     else:
         im = plt.imshow(a0, cmap='twilight', vmin=0, vmax=2*np.pi, interpolation='none')
 
@@ -163,33 +166,21 @@ def animate(model,rem,variable='phase'):
             im.set_array(a)
             im2.set_array(b)
         else:
-            a = model.vorticity % (2 * np.pi)
+            a = model.vorticity #% (2 * np.pi)
             im.set_array(a[t])
         plt.title(r'${}, t={}$, $\sigma={}, \eta ={}$'.format(variable,t, model.sigma, model.eta))
         return [im]
     anim = am.FuncAnimation(fig, update, frames=[i for i in range(0,model.tmax)], repeat=False)
-    if model.grad == [1, 1]:
-        val = 'A'
-    elif model.grad == [-1, 1]:
-        val = 'B'
-    elif model.grad == [1, -1]:
-        val = 'C'
-    elif model.grad == [0, 0] and model.bc == 'grad':
-        val = 'D'
-    elif model.bc == 'fix':
-        val = 'fix'
-    elif model.bc == 'periodic':
-        val = 'p'
-    else:
-        val = 'custom'
+
     #title = r'2Danim_{}_{}_{}_{}'.format(variable, val, model.sigma, model.eta)
-    title = get_title(model, variable)
+    title = get_title(model, variable,model.count)
     if rem:
         title = title + '_alt'
     anim.save('animations/' + title + '.mp4', fps=25, extra_args=['-vcodec', 'libx264'])
+    print(str(variable) + ' animation saved')
     return title
 
-def get_title(model,variable='phase'):
+def get_title(model,variable='phase',count=0):
     if model.bc == 'grad':
         if model.grad == [1, 1]:
             val = 'A'
@@ -208,5 +199,7 @@ def get_title(model,variable='phase'):
     else:
         print('Error bc not present')
         return
-    title = r'{}_{}_bc{}_{}_{}'.format(model.dim,variable,val, model.sigma, model.eta)
+    title = r'{}_{}_{}_{}_{}_{}'.format(variable,model.dim,val, model.sigma, model.eta,count)
+    if count == 0:
+        title = r'{}_{}_{}_{}_{}'.format(variable, model.dim, val, model.sigma, model.eta)
     return title
