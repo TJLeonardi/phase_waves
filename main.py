@@ -58,23 +58,26 @@ def remove_harmonics(filename):
     analyse.remove_harmonic(agent.read(filename), agent.set_model(filename))
 
 
-tmax = 1000
-vals = [0,0.05,0.1,0.2,1]
+tmax = 10000
+vals = [0,0.01,0.02,0.05,0.1,0.2,0.5,1,2,5]
 
 bcs = ['fix','grad','grad','grad','grad','periodic']
 grad = [[0, 0], [1, 1], [-1, 1], [1, -1], [0, 0], []]
 dims = ['1D','q2D','2D']
 
 
-for i in [0]:
-    for j in [0.2]:
-        for k in [0]:
+for i in vals:
+    for j in vals:
+        for k in range(6):
             for l in [1]:
-                #title = todo(tmax, i, j, bcs[k], grad[k], dims[l])
-                #anim_read(title, 'phase')
-                #anim_read(title, 'vorticity')
-                # remove_harmonic('20230208_c0_0.5_1')
-                pass
+                for m in range(10):
+                    model = todo(tmax, vals[i], vals[j], bcs[k], grad[k], 'q2D')[1]
+                    if m %10 == 0:
+                        visualise.animate(model,False,'phase')
+                    analyse.plot_vd(model)
+                    analyse.vorsites(model,179)
+                    analyse.interdistances_multiframe(model, 0, model.tmax)
+
 
 
 #egbranch = agent.Kuramoto(200,20,128,0.1,0.5,'grad',[1,1],'branch')
