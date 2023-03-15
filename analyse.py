@@ -3,7 +3,10 @@ import matplotlib.pyplot as plt
 from scipy.fft import ifft2, fft2
 import visualise
 import agent
+import pickle
+import os
 from math import fabs, pi
+
 
 def vortex_frame(model,frame):
     model.find_vorticity_2()
@@ -55,7 +58,7 @@ def interdistances(model,frame):
     distances.sort()
     mean = np.mean(distances)
     median = np.median(distances)
-    expected_mean = np.exp(1/model.eta)
+    #expected_mean = np.exp(1/model.eta)
     #plt.hist(distances,density=True)
     #plt.axvline(mean,color='r')
     #plt.axvline(median,color='g')
@@ -77,18 +80,20 @@ def interdistances_multiframe(model,start, end):
     print(distances)
     mean = np.mean(distances)
     median = np.median(distances)
-    expected_mean = np.exp(1 / model.eta)
+
     plt.hist(distances, density=True,bins=20)
     plt.axvline(mean, color='r')
     plt.axvline(median, color='g')
-
-    plt.axvline(expected_mean, color='k')
+    if model.eta > 0:
+        expected_mean = np.exp(1 / model.eta)
+        plt.axvline(expected_mean, color='k')
 
     plt.xlabel('inter-vortex distance')
     plt.title(r'distances between frames {} and {}. green = median, red = mean, black = Lv'.format(start,end))
     title = visualise.get_title(model, 'interdistances_multi')
     plt.savefig('vortices/' + title + '.png')
     plt.show()
+    return mean
 
 def plot_vd(model):
     plt.clf()
@@ -111,8 +116,9 @@ def plot_vd(model):
 
     plt.savefig('vortices/' + title + '.png')
     plt.show()
-
-    return
+    net_mean = np.mean(y.T[0][int(model.tmax/2):])
+    ms_mean = np.mean(y.T[1][int(model.tmax / 2):])
+    return net_mean,ms_mean
 
 def magnetisation(model, frame):
     values_before = model.theta.T[frame] % (2 * np.pi)
@@ -124,6 +130,23 @@ def magnetisation(model, frame):
 
     return M
 
+def pd_file(model,vals='none'):
+    title = r'pd_{}_{}'.format(model.dim,model.q2D)
+    if title in os.listdir('vorticity'):
+        pd_update(model,vals)
+        return title
+    else:
+        data = [model.sigma,model.eta,vals[0],vals[1],vals[2]]
+        pickle.dump(data, open('vortices/' + title + '.p', "wb"))
+        return title
+
+
+def pd_update(model,vals):
+    title = r'pd_{}_{}'.format(model.dim,model.q2D)
+    temp = pickle.load(open('vortices/' + title + '.p', 'rb'))
+    temp.append([model.sigma,model.eta,vals[0],vals[1],vals[2]])
+    pickle.dump(temp, open('vortices/' + title + '.p', "wb"))
+    return
 
 def plot_m(model):
     plt.clf()
@@ -196,6 +219,7 @@ def vcorr(model):
     print(corrs.shape)
     corr_r = np.sum(corrs,axis=0)/model.tmax
     return corr_r
+
 
 def plotvcorr(model):
     y = vcorr(model)
