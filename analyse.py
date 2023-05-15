@@ -5,39 +5,42 @@ import visualise
 import agent
 import pickle
 import os
+from scipy import signal
 from math import fabs, pi
 
 
 def vortex_frame(model,frame):
     model.find_vorticity_2()
-    values_before = model.vorticity[frame] #% (2 * np.pi)
+    values_before = model.vorticity[frame]  # % (2 * np.pi)
     values = values_before.flatten()
-    for i in range(len(values)):
-        if values[i] > np.pi:
-            values[i] -= 2 * np.pi
+    # for i in range(len(values)):
+    #    if values[i] > np.pi:
+    #        values[i] -= 2 * np.pi
 
-    return values_before.flatten()
+    return values
 
 def vortex_densities(model,frame):
     values = vortex_frame(model,frame)
-
+    sites = vorsites(model,frame)
     density = np.mean(values)
     squared_density = np.sum(values**2)/len(values)
-    return density, squared_density
+    ang_vel =  np.sum(abs(values)/len(sites))/(2*np.pi)
+    #print(len(values))
+    #print(len(sites))
+    return density, squared_density, ang_vel
 
 def vorsites(model,frame):
     values = vortex_frame(model,frame).reshape((model.N,model.M))
-    mean = np.mean(np.sign(values)*values)
     sites = []
     for i in range(model.N):
         for j in range(1,model.M):
-            if abs(values[i][j]) >= 0.1: #<= 4.5 * mean:
+            if abs(values[i][j]) >= 0.01: #<= 4.5 * mean:
                 #values[i][j] = 0
-
                 sites.append([i,j])
     #plt.imshow(values, cmap='PiYG',interpolation='none')
     #plt.show()
     return sites
+
 
 def interdistances(model,frame):
     sites = vorsites(model,frame)
@@ -101,7 +104,7 @@ def plot_vd(model):
     for t in range(model.tmax):
         y.append(vortex_densities(model,t))
     y = np.array(y)
-    fig,axs = plt.subplots(2)
+    fig,axs = plt.subplots(3)
     axs[0].set_title(visualise.get_title(model,'vortex density in time'))
     axs[0].set_ylabel('net vorticity')
     #axs[0].set_xlabel('t')
@@ -111,14 +114,76 @@ def plot_vd(model):
     axs[1].set_ylabel('mean squared vorticity')
     axs[1].set_xlabel('t')
     plt.yscale('log')
+    axs[2].plot(y.T[2])
+    axs[2].set_ylabel('mean angular velocity')
+    axs[2].set_xlabel('t')
+
 
     title = visualise.get_title(model, variable='vd', count=model.count)
 
     plt.savefig('vortices/' + title + '.png')
     plt.show()
-    net_mean = np.mean(y.T[0][int(model.tmax/2):])
-    ms_mean = np.mean(y.T[1][int(model.tmax / 2):])
-    return net_mean,ms_mean
+    #net_mean = np.mean(y.T[0][int(model.tmax/2):])
+    #ms_mean = np.mean(y.T[1][int(model.tmax / 2):])
+    net_last = y.T[0][-1]
+    ms_last = y.T[1][-1]
+    return net_last,ms_last
+
+def rij(i_1,j_1,i_2,j_2):
+    return np.sqrt(np.subtract(i_1,i_2)**2 + np.subtract(j_1,j_2)**2)
+
+def delta(i_1,j_1,i_2,j_2,r):
+    if rij(i_1,j_1,i_2,j_2) <= (r+1) and rij(i_1,j_1,i_2,j_2) > r :
+            d = 1
+    else:
+            d=0
+    return d
+
+
+def css_t(model, t):
+    csst = []
+    csst_norm = []
+    theta = model.theta.T[t].reshape((model.N,model.M))% (2*np.pi)
+    if model.N > model.M:
+        max = model.N
+    else:
+        max = model.M
+    for r in range(0, max):
+        cssr = 0
+        Z = 0
+        for i_1 in range(0,model.N,8):
+            for j_1 in range(0,model.M,8):
+                for i_2 in range(model.N):
+                    for j_2 in range(model.M):
+                        d = delta(i_1,j_1,i_2,j_2,r)
+                        if d == 1:
+                            shifted_theta = np.roll(np.roll(theta,i_2,axis=0),j_2,axis=1)
+                            cssr += np.cos(theta[i_1,j_1] - shifted_theta[i_1,j_1]) * d
+                            Z += d
+        if Z == 0:
+            csst_norm.append([(r + 1 / 2), 0])
+            csst.append([(r + 1 / 2), 0])
+        else:
+            csst_norm.append([(r + 1 / 2) , np.divide(cssr, Z)])
+            csst.append([(r + 1 / 2) , cssr])
+
+    #print(f'{csst=}')
+    return csst_norm, csst
+
+
+def corr_auto_xy_t0(model,x,y,t_0=0):
+    caxy_t0 = np.zeros(model.tmax)
+    compare = model.theta.T[t_0].reshape((model.N, model.M))[x,y]
+    for t in range(model.tmax):
+        theta = model.theta.T[t].reshape((model.N, model.M)) # % (2 * np.pi)
+        caxy_t0[t] = (theta[x,y] - compare)
+    return caxy_t0
+
+
+def corr_auto_xy(model,x,y):
+    caxy = np.array([np.zeros(model.tmax) for t in range(model.tmax)])
+    for t0 in range(model.tmax):
+        caxy[t0] = corr_auto_xy_t0(model,x,y,t0)
 
 def magnetisation(model, frame):
     values_before = model.theta.T[frame] % (2 * np.pi)
@@ -127,39 +192,83 @@ def magnetisation(model, frame):
         if values[i] > np.pi:
             values[i] -= 2 * np.pi
     M = np.mean(values)
+    E = np.mean(np.exp(1j*values))
+    R = abs(E)
+    T = np.angle(E)
+    return M,R,T
 
-    return M
+def plot_m(model):
+    plt.clf()
+    m,r,t = np.array([magnetisation(model,t) for t in range(model.tmax)]).T
+    fig,axs = plt.subplots(3)
+    axs[0].plot(m)
+    axs[0].set_title(visualise.get_title(model,'magnestisation',model.count))
+    axs[0].set_ylabel('mean $\Theta$')
+    axs[1].plot(r)
+    axs[1].set_ylabel('abs mean exp(i$\Theta$)')
+    axs[2].plot(t)
+    axs[2].set_ylabel('arg mean exp(i$\Theta$)')
+    axs[2].set_xlabel('t')
+    peaks = signal.find_peaks(t)
+    peak_number = len(peaks[0])*5
+    r_last = (r[-1])
+    m_last = m[-1]
+    plt.show()
+    #title = visualise.get_title(model, variable='magnetisation', count=model.count) + r'_t={}'.format(t)
+
+    #plt.savefig('vortices/' + title + '.png')
+    return peak_number,r_last,m_last
+
+def get_velocity(model):
+    #velocity = np.array([np.zeros(model.N*model.M) for t in range(model.tmax - 1)])
+    for t in range(model.tmax-1):
+        model.velocity[t] = np.subtract(model.theta.T[t+1] , model.theta.T[t] )
+    model.velocity = model.velocity.reshape(model.tmax-1,model.N,model.M)
+    return
+
+def mean_velocity(model):
+    means= np.mean(np.mean(abs(model.velocity),axis=1),axis=1)
+    stdvs = np.std(model.velocity.reshape(model.tmax-1,model.N*model.M),axis=1)
+    fig,axs = plt.subplots(2)
+    axs[0].plot(means)
+
+    axs[0].set_title(visualise.get_title(model,'mean and stdv of velocity',model.count))
+    axs[0].set_ylabel('mean velocity')
+    axs[1].plot(stdvs)
+    axs[1].set_ylabel('stdev velocity')
+    axs[1].set_xlabel('t')
+    last_mean = means[-1]
+    last_stdv = stdvs[-1]
+    plt.show()
+    return last_mean,last_stdv
+
 
 def pd_file(model,vals='none'):
-    title = r'pd_{}_{}'.format(model.dim,model.q2D)
-    if title in os.listdir('vorticity'):
+    title = r'pd_{}_{}_{}.p'.format(model.dim,model.bc,model.tmax)
+    if title in os.listdir('vortices'):
         pd_update(model,vals)
         return title
     else:
-        data = [model.sigma,model.eta,vals[0],vals[1],vals[2]]
-        pickle.dump(data, open('vortices/' + title + '.p', "wb"))
+        # data = [model.sigma,model.eta,vals[0],vals[1],vals[2]]
+        new_row = [model.sigma, model.eta]
+        for i in range(len(vals)):
+            new_row.append(vals[i])
+
+        pickle.dump([new_row], open('vortices/' + title, "wb"))
         return title
 
 
 def pd_update(model,vals):
-    title = r'pd_{}_{}'.format(model.dim,model.q2D)
+    title = r'pd_{}_{}_{}'.format(model.dim,model.bc,model.tmax)
     temp = pickle.load(open('vortices/' + title + '.p', 'rb'))
-    temp.append([model.sigma,model.eta,vals[0],vals[1],vals[2]])
+    new_row = [model.sigma,model.eta]
+    for i in range(len(vals)):
+        new_row.append(vals[i])
+    temp.append(new_row)
     pickle.dump(temp, open('vortices/' + title + '.p', "wb"))
     return
 
-def plot_m(model):
-    plt.clf()
-    y = []
-    for t in range(model.tmax):
-        y.append(magnetisation(model, t))
-    y = np.array(y)
-    plt.plot(y)
-    plt.title('magnetisation')
-    plt.show()
-    title = visualise.get_title(model, variable='magnetisation', count=model.count) + r'_t={}'.format(t)
 
-    plt.savefig('vortices/' + title + '.png')
 
 
 def pcorr_t(model,t):

@@ -27,6 +27,8 @@ class Kuramoto:
         self.v_y = np.zeros([tmax, N, M])
         self.vorticity = np.zeros([tmax, N, M])
         self.omegas = np.random.normal(0, sigma, [N, M])
+        #self.omegas[int(N/2),int(M/2)] = 2.5
+        self.velocity = np.array([np.zeros(N * M) for t in range(tmax - 1)])
 
         # self.theta[0] = theta0
 
@@ -182,7 +184,8 @@ class Kuramoto:
             theta = np.reshape(self.theta.T[t], (self.N, self.M))
             self.v_x[t] = np.angle(np.exp(1j*(theta - np.roll(theta, 1, axis=1))))
             self.v_y[t] = np.angle(np.exp(1j*(theta - np.roll(theta, 1, axis=0))))
-            self.v_x[t][:, 0] = np.array([self.grad[0] for i in range(len(theta[:,0]))])
+            if self.bc == 'grad':
+                self.v_x[t][:, 0] = np.array([self.grad[0] for i in range(len(theta[:,0]))])
             # self.v_y[t][0,:] = 0
             self.vorticity[t] = (self.v_y[t] - np.roll(self.v_y[t], 1, axis=1)) - (
                         self.v_x[t] - np.roll(self.v_x[t], 1, axis=0))

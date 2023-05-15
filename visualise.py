@@ -140,6 +140,9 @@ def animate(model,rem,variable='phase'):
     elif variable == 'v_y':
         a0 = model.v_y[0]
         a = model.v_y
+    elif variable == 'velocity':
+        a0 = model.velocity[0]
+        a = model.velocity
     else:
         print('Error variable not present')
         a=0
@@ -149,7 +152,7 @@ def animate(model,rem,variable='phase'):
         fig, axs = plt.subplots(2)
         im = axs[0].imshow(a0, cmap='twilight', vmin=0, vmax=2*np.pi, interpolation='none')
         im2 = axs[1].imshow(b0, cmap='twilight', vmin=0, vmax=2*np.pi, interpolation='none')
-    elif variable == 'vorticity':
+    elif variable == 'vorticity' or variable == 'velocity':
         im = plt.imshow(a0, cmap='PiYG',  interpolation='none')
     else:
         im = plt.imshow(a0, cmap='twilight', vmin=0, vmax=2*np.pi, interpolation='none')
@@ -161,6 +164,11 @@ def animate(model,rem,variable='phase'):
     def update(t):
         if variable == 'phase':
             im.set_array(model.theta.T[t].reshape((model.N,model.M)) % (2*np.pi))
+        elif variable == 'velocity':
+            if t == len(model.velocity):
+                im.set_array(model.velocity[t-1])
+            else:
+                im.set_array(model.velocity[t])
         elif variable == 'branch':
             a, b = model.theta.T[t].reshape(2,model.N, model.M) % (2*np.pi)
             im.set_array(a)
