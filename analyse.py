@@ -29,16 +29,17 @@ def vortex_densities(model,frame):
     #print(len(sites))
     return density, squared_density, ang_vel
 
-def vorsites(model,frame):
+def vorsites(model,frame,threshold=0.01):
     values = vortex_frame(model,frame).reshape((model.N,model.M))
     sites = []
     for i in range(model.N):
         for j in range(1,model.M):
-            if abs(values[i][j]) >= 0.01: #<= 4.5 * mean:
+            if abs(values[i][j]) >= threshold: #<= 4.5 * mean:
                 #values[i][j] = 0
-                sites.append([i,j])
+                sites.append([frame,i,j,np.sign(np.divide(values[i][j],2*np.pi))])
     #plt.imshow(values, cmap='PiYG',interpolation='none')
     #plt.show()
+
     return sites
 
 
@@ -298,7 +299,7 @@ def plotpcorr(model):
     plt.plot(y)
     plt.title('p')
     plt.show()
-    title = visualise.get_title(model, variable='pcorr', count=model.count) + r'_t={}'.format(t)
+    title = visualise.get_title(model, variable='pcorr', count=model.count) #+ r'_t={}'.format(t)
 
     plt.savefig('correlations/' + title + '.png')
 

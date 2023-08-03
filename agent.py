@@ -7,28 +7,37 @@ import visualise
 
 
 class Kuramoto:
-    def __init__(self, tmax, N, M=1, sigma=0.43, eta=0.04, bc='fix', grad=None, dim='Unspecified',init='flat'):
+    def __init__(self, tmax, N, M=1, sigma=0.43, eta=0.04, bc='fix', grad=None, dim='Unspecified',init='rand',which_omegas=False, omegas=None):
         if grad is None:
             grad = [0, 0]
         self.N = N
         self.M = M
         self.tmax = tmax
+        self.Dt = 1
         self.sigma = sigma
         # sigma 0.2, eta 0.2
         self.eta = eta
         self.title = ''
+        self.init = init
         self.bc = bc
         self.grad = grad
         self.dim = dim
         self.theta = np.zeros(N * M)
         # self.theta[int(N/2)] = np.pi
         self.example = np.zeros([N, M])
-        self.v_x = np.zeros([tmax, N, M])
-        self.v_y = np.zeros([tmax, N, M])
-        self.vorticity = np.zeros([tmax, N, M])
-        self.omegas = np.random.normal(0, sigma, [N, M])
+        if tmax < 10000:
+            self.v_x = np.zeros([tmax, N, M])
+            self.v_y = np.zeros([tmax, N, M])
+            self.vorticity = np.zeros([tmax, N, M])
+            self.energy = np.zeros([tmax, N, M])
+            self.divergence = np.zeros([tmax, N, M])
+
+        if which_omegas==False:
+            self.omegas = np.random.normal(0, sigma, [N, M])
+        else:
+            self.omegas  = omegas
         #self.omegas[int(N/2),int(M/2)] = 2.5
-        self.velocity = np.array([np.zeros(N * M) for t in range(tmax - 1)])
+        #self.velocity = np.array([np.zeros(N * M) for t in range(tmax - 1)])
 
         # self.theta[0] = theta0
 
@@ -45,6 +54,14 @@ class Kuramoto:
                 self.theta[N*M-1] = 0
         if init == 'rand':
             self.theta = np.random.random(N * M) * 2 * np.pi
+        elif init == 'one_wind':
+            self.theta = np.linspace(0,2*np.pi,N*M)
+        elif init == 'vort':
+            self.theta = np.zeros((N * M))  # np.pi*np.random.normal(size=(Lx*Ly))
+            loc = [28,0]
+            self.theta += ((self.make_topo_defect(1, N, M, loc[0], M/2+loc[1]) + self.make_topo_defect(-1, N, M, N-loc[0], M/2-loc[1])) % (2* np.pi)).flatten()
+        elif init == 'flat':
+            self.theta = np.zeros((N * M)) + 0.5
         # elif sigma == 0 and init == 'const':
         #    self.theta = [np.pi for i in range(N*M)]
 
@@ -98,6 +115,12 @@ class Kuramoto:
         elif self.bc == 'grad':
             y[:, 0] = self.omegas[:, 0] + (self.K_phi(-self.grad[0]) + self.K_phi(theta[:, 1] - theta[:, 0])) + a3[:,0] + a4[:,0]
             y[:, -1] = self.omegas[:, -1] + (self.K_phi(self.grad[1]) + self.K_phi(theta[:, -2] - theta[:, -1])) + a3[:,-1] + a4[:,-1]
+        elif self.bc == 'flat':
+            y[:, 0] = self.omegas[:, 0] + (self.K_phi(-self.grad[0]) + self.K_phi(theta[:, 1] - theta[:, 0])) + a3[:,0] + a4[:,0]
+            y[:, -1] = self.omegas[:, -1] + (self.K_phi(self.grad[1]) + self.K_phi(theta[:, -2] - theta[:, -1])) + a3[:,-1] + a4[:,-1]
+
+            y[0, :] = self.omegas[0,:] + (self.K_phi(-self.grad[0]) + self.K_phi(theta[1,:] - theta[ 0,:])) + a1[0,:] + a2[0,:]
+            y[-1, :] = self.omegas[ -1,:] + (self.K_phi(self.grad[1]) + self.K_phi(theta[ -2,:] - theta[ -1,:])) + a1[-1,:] + a2[-1,:]
         elif self.bc == 'custom':
             y[:, 0] = 0
             y[:, -1] = 0
@@ -115,7 +138,9 @@ class Kuramoto:
             self.omegas = self.omegas.flatten()
             sol = solve_ivp(self.rhs, [0, self.tmax], self.theta, method='LSODA',t_eval=range(self.tmax))
         elif dim == 2:
+            print('here')
             sol = solve_ivp(self.rhs_2d, [0, self.tmax], self.theta, method='LSODA',t_eval=range(self.tmax))
+            print('gone')
         else:
             print('Error dim not present')
             return
@@ -138,7 +163,7 @@ class Kuramoto:
         stats = {'N': self.N, 'M': self.M, 'tmax': self.tmax, 'sigma': self.sigma,
                  'eta': self.eta, 'bc': self.bc, 'grad': self.grad, 'dim': self.dim, 'count':self.count}
         print(stats)
-
+        print(title)
         data = {'stats': stats, 'omegas': self.omegas, 'theta': self.theta}
         pickle.dump(data, open('data/' + title + '.p', "wb"))
         return
@@ -162,7 +187,7 @@ class Kuramoto:
         for file in files:
             if file[:chars] == title:
                 count += 1
-        title = title + '_' + str(count)
+        #title = title + '_' + str(count)
         self.count = count
         return title
 
@@ -179,26 +204,157 @@ class Kuramoto:
             ##self.vorticity[t] = self.vorticity[t] - self.vorticity[0]
 
 
-    def find_vorticity_2(self):
+    def find_vorticity_2(self,div=False):
+        if div:
+            self.find_divergence()
         for t in range(self.tmax):
-            theta = np.reshape(self.theta.T[t], (self.N, self.M))
+            if not div:
+                theta = np.reshape(self.theta.T[t], (self.N, self.M))
+            else:
+                theta = np.reshape(self.divergence[t], (self.N, self.M))
             self.v_x[t] = np.angle(np.exp(1j*(theta - np.roll(theta, 1, axis=1))))
             self.v_y[t] = np.angle(np.exp(1j*(theta - np.roll(theta, 1, axis=0))))
             if self.bc == 'grad':
                 self.v_x[t][:, 0] = np.array([self.grad[0] for i in range(len(theta[:,0]))])
+            if self.bc == 'flat':
+                self.v_x[t][:, 0] = np.array([self.grad[0] for i in range(len(theta[:, 0]))])
+                self.v_y[t][0,:] = np.array([self.grad[1] for i in range(len(theta[0,:]))])
             # self.v_y[t][0,:] = 0
             self.vorticity[t] = (self.v_y[t] - np.roll(self.v_y[t], 1, axis=1)) - (
                         self.v_x[t] - np.roll(self.v_x[t], 1, axis=0))
-   # def omega(self, t):
-   #     theta = self.pick(t)
-   #     shift(theta)
-   #     for i in range(len(self.v)):
-   #         self.v[i] = self.eta / self.N * (
-   #             np.sum(1 - np.cos(np.roll(theta, 1) - theta) + 1 - np.cos(np.roll(theta, -1) - theta)))
-   #         self.v[i] += np.mean(self.omegas)
-   #         # wy
-   #         self.v[i] += theta[i]
-   #     return
+    def find_energy(self):
+        for t in range(self.tmax):
+            theta = np.reshape(self.theta.T[t], (self.N, self.M))
+            self.v_x[t] = np.angle(np.exp(1j*(theta - np.roll(theta, 1, axis=1))))
+            self.v_y[t] = np.angle(np.exp(1j*(theta - np.roll(theta, 1, axis=0))))
+            self.energy[t][:,:] = self.v_x[t][:,:]**2 + self.v_y[t][:,:]**2
+
+    def find_divergence(self):
+        for t in range(self.tmax):
+            theta = np.reshape(self.theta.T[t], (self.N, self.M))
+            self.v_x[t] = np.angle(np.exp(1j*(theta - np.roll(theta, 1, axis=1))))
+            self.v_y[t] = np.angle(np.exp(1j*(theta - np.roll(theta, 1, axis=0))))
+            self.divergence[t] = self.v_x[t] - np.roll(self.v_x[t], 1, axis=1) +self.v_y[t] - np.roll(self.v_y[t], 1, axis=0)
+
+    def make_topo_defect(self,k, Lx, Ly, x0, y0):
+        x, y = np.meshgrid((np.arange(Lx) - x0), (np.arange(Ly) - y0))
+        theta = np.arctan2(y, x)
+        return (k * theta) % (2 * np.pi)
+
+
+class cKPZ(Kuramoto):
+    def K_phi(self,phi):
+        return np.angle(np.exp(1j*phi)) + self.eta*(np.angle(np.exp(1j*phi))**2/2)
+
+class temp_noise(Kuramoto):
+    def __init__(self, tmax, N, M=1, sigma=0.43, eta=0.04, bc='fix', grad=None, dim='Unspecified',init='rand',which_omegas=False, omegas=None,W=0.,Dt=1):
+        Kuramoto.__init__(self,tmax, N, M, sigma, eta, bc, grad, dim,init,which_omegas, omegas,)
+        self.W = W
+        self.Dt = Dt
+        #self.velocity = np.zeros(N*M)
+    def solve(self,dim=1):
+        res = 1000
+        theta_init = self.theta
+        self.theta = np.zeros([int(self.tmax), len(theta_init)])
+        self.theta[0] = theta_init
+        for t in range(self.tmax - 1):
+            theta_t = np.reshape(self.theta[t], (self.N, self.M))
+            j_plus = np.roll(theta_t, 1, axis=1)
+            j_minus = np.roll(theta_t, -1, axis=1)
+            i_plus = np.roll(theta_t, 1, axis=0)
+            i_minus = np.roll(theta_t, -1, axis=0)
+            a1 = self.K_phi(j_plus - theta_t)  # coupling to the left
+            a2 = self.K_phi(j_minus - theta_t)  # coupling to the right
+            a3 = self.K_phi(i_plus - theta_t)  # coupling above
+            a4 = self.K_phi(i_minus - theta_t)  # coupling below
+            w = np.random.normal(0, self.W, (self.N, self.M))
+            y = (a1 + a2 + a3 + a4 + self.omegas) * self.Dt + np.sqrt(self.Dt) * w
+            if self.bc == 'all_fix':
+                y[0, :] = 0
+                y[:, 0] = 0
+                y[-1, :] = 0
+                y[:, -1] = 0
+            elif self.bc == 'fix':
+                # y[0,:] =  y[-1,:]
+                y[:, 0] = 0
+                y[:, -1] = 0
+            elif self.bc == 'grad':
+                y[:, 0] = self.Dt * (self.omegas[:, 0] + (
+                            self.K_phi(-self.grad[0]) + self.K_phi(theta_t[:, 1] - theta_t[:, 0])) + a3[:, 0] + a4[:,
+                                                                                                                0])
+                y[:, -1] = self.omegas[:, -1] + (
+                        self.K_phi(self.grad[1]) + self.K_phi(theta_t[:, -2] - theta_t[:, -1])) + a3[:, -1] + a4[:, -1]
+            elif self.bc == 'flat':
+                y[:, 0] = (self.omegas[:, 0] + (self.K_phi(-self.grad[0]) + self.K_phi(theta_t[:, 1] - theta_t[:, 0]))
+                           + a3[:, 0] + a4[:, 0]) * self.Dt
+                y[:, -1] = (self.omegas[:, -1] + (
+                            self.K_phi(self.grad[1]) + self.K_phi(theta_t[:, -2] - theta_t[:, -1]))
+                            + a3[:, -1] + a4[:, -1]) * self.Dt
+                y[0, :] = (self.omegas[0, :] + (self.K_phi(-self.grad[0]) + self.K_phi(theta_t[1, :] - theta_t[0, :]))
+                           + a1[0, :] + a2[0, :]) * self.Dt
+                y[-1, :] = (self.omegas[-1, :] + (self.K_phi(self.grad[1]) + self.K_phi(theta_t[-2, :]- theta_t[-1, :])) + a1[-1,:] + a2[-1,:]) * self.Dt
+            self.theta[int(t) + 1] = self.theta[int(t)] + y.flatten()
+        print(np.shape(self.theta))
+        keep = np.zeros([int(self.tmax/res), len(theta_init)])
+        for i in range(int(self.tmax/res)):
+            keep[i] = self.theta[res*i]
+        self.theta = keep.T
+        return
+
+class temp_noiseKPZ(cKPZ):
+    def __init__(self, tmax, N, M=1, sigma=0.43, eta=0.04, bc='fix', grad=None, dim='Unspecified',init='rand',which_omegas=False, omegas=None,W=0.,Dt=1):
+        Kuramoto.__init__(self,tmax, N, M, sigma, eta, bc, grad, dim,init,which_omegas, omegas,)
+        self.W = W
+        self.Dt = Dt
+        #self.velocity = np.zeros(N*M)
+    def solve(self,dim=1):
+        res = 1000
+        theta_init = self.theta
+        self.theta = np.zeros([int(self.tmax), len(theta_init)])
+        self.theta[0] = theta_init
+        for t in range(self.tmax - 1):
+            theta_t = np.reshape(self.theta[t], (self.N, self.M))
+            j_plus = np.roll(theta_t, 1, axis=1)
+            j_minus = np.roll(theta_t, -1, axis=1)
+            i_plus = np.roll(theta_t, 1, axis=0)
+            i_minus = np.roll(theta_t, -1, axis=0)
+            a1 = self.K_phi(j_plus - theta_t)  # coupling to the left
+            a2 = self.K_phi(j_minus - theta_t)  # coupling to the right
+            a3 = self.K_phi(i_plus - theta_t)  # coupling above
+            a4 = self.K_phi(i_minus - theta_t)  # coupling below
+            w = np.random.normal(0, self.W, (self.N, self.M))
+            y = (a1 + a2 + a3 + a4 + self.omegas) * self.Dt + np.sqrt(self.Dt) * w
+            if self.bc == 'all_fix':
+                y[0, :] = 0
+                y[:, 0] = 0
+                y[-1, :] = 0
+                y[:, -1] = 0
+            elif self.bc == 'fix':
+                # y[0,:] =  y[-1,:]
+                y[:, 0] = 0
+                y[:, -1] = 0
+            elif self.bc == 'grad':
+                y[:, 0] = self.Dt*(self.omegas[:, 0] + (self.K_phi(-self.grad[0]) + self.K_phi(theta_t[:, 1] - theta_t[:, 0])) + a3[:,0] + a4[ :,0])
+                y[:, -1] = self.omegas[:, -1] + (
+                            self.K_phi(self.grad[1]) + self.K_phi(theta_t[:, -2] - theta_t[:, -1])) + a3[:, -1] + a4[:, -1]
+            elif self.bc == 'flat':
+                y[:, 0] = (self.omegas[:, 0] + (self.K_phi(-self.grad[0]) + self.K_phi(theta_t[:, 1] - theta_t[:, 0]))
+                           + a3[:, 0] + a4[:,0]) * self.Dt
+                y[:, -1] = (self.omegas[:, -1] + (self.K_phi(self.grad[1]) + self.K_phi(theta_t[:, -2] - theta_t[:, -1]))
+                            + a3[:, -1] + a4[:,-1]) * self.Dt
+                y[0, :] = (self.omegas[0, :] + (self.K_phi(-self.grad[0]) + self.K_phi(theta_t[1, :] - theta_t[0, :]))
+                           + a1[0, :] + a2[0,:]) * self.Dt
+                y[-1, :] = (self.omegas[-1, :] + (self.K_phi(self.grad[1]) + self.K_phi(theta_t[-2, :]
+                                                                    - theta_t[-1, :])) + a1[-1, :] + a2[-1,:]) * self.Dt
+
+            self.theta[int(t) + 1] = self.theta[int(t)] + y.flatten()
+        print(np.shape(self.theta))
+        keep = np.zeros([int(self.tmax/res), len(theta_init)])
+        for i in range(int(self.tmax/res)):
+            keep[i] = self.theta[res*i]
+        self.theta = keep.T
+        #self.theta = self.theta.T
+        return
 
 
 def shift(phases, tol=1):
@@ -400,3 +556,27 @@ class Branch(Kuramoto):
         circumference = np.concatenate([res1, res2, res3, res4])
         print(circumference)
         return circumference,inside
+
+
+
+
+
+#centre = [int(N/2),int(M/2)]
+ #           theta = np.reshape(self.theta, (self.N, self.M))
+  #          for i in range(self.N):
+   #             for j in range(self.M):
+    #                if centre[0] < j < 3*centre[0]/2:
+     #                   if centre[1] <= i < 3*centre[1]/2:
+      #                      theta[i, j] = np.arctan((i-centre[1])/(j-centre[0]))
+       #                 elif i > centre[0]/2:
+        #                    theta[i, j] = np.arctan((i - centre[0]) / (j - centre[1]))
+         #           elif centre[0] > j > centre[0]/2:
+          #              if centre[1] <= i < 3*centre[0]/2:
+           #                 theta[i, j] = np.arctan((i-centre[1])/(j-centre[0])) - np.pi
+            #            elif i > centre[0]/2:
+             #               theta[i, j] = np.arctan((i-centre[1])/(j-centre[0])) + np.pi
+              #      else:
+               #         if i >= centre[1]:
+                #            theta[i, j] = np.pi/2
+                 #       else:
+                  #          theta[i, j] = -np.pi/2

@@ -13,13 +13,14 @@ import analyse
 import visualise
 
 
-def todo(tmax, height,length,sigma, eta, bc, grad, dim,init):
+def todo(tmax, height,length,sigma, eta, bc, grad, dim,init,which_omegas,omegas=None,W=0,Dt=1):
     t_max = tmax
     #length = 64
     # length= 64
     if dim == '2D':
         #height = 64
-        model = agent.Kuramoto(t_max, height, length, sigma, eta, bc, grad,dim,init)
+        model = agent.Kuramoto(t_max, height, length, sigma, eta, bc, grad,dim,init,which_omegas,omegas)
+        print('2D init')
         model.solve(dim=2)
         print('2D solved')
         model.save()
@@ -27,19 +28,33 @@ def todo(tmax, height,length,sigma, eta, bc, grad, dim,init):
         print('2D saved')
     elif dim == 'q2D':
         #height = 20
-        model = agent.Kuramoto(t_max, height, length, sigma, eta, bc, grad,dim,init)
+        model = agent.Kuramoto(t_max, height, length, sigma, eta, bc, grad,dim,init,which_omegas,omegas)
         model.solve(dim=2)
         print('2D solved')
         model.save()
-        visualise.plot2D_frame(model.tmax - 2, model)
+        visualise.plot2D_frame(model.tmax-2, model)
         print('2D saved')
     elif dim == '1D':
-        model = agent.Kuramoto(t_max, length, 1, sigma, eta, bc, grad,dim,init)
+        model = agent.Kuramoto(t_max, length, 1, sigma, eta, bc, grad,dim,init,which_omegas,omegas)
         model.solve()
         print('1D solved')
         model.save()
         visualise.plot1D_frame(model,t = -2)
         print('1D saved')
+    elif dim == 'cKPZ_2D':
+        model = agent.cKPZ(t_max, height, length, sigma, eta, bc, grad, dim, init, which_omegas, omegas)
+        model.solve(dim=2)
+        print('2D solved')
+        model.save()
+        visualise.plot2D_frame(model.tmax - 2, model)
+        print('2D saved')
+    elif dim == 'temp_noise':
+        model = agent.temp_noise(t_max, height, length, sigma, eta, bc, grad, dim, init, which_omegas, omegas,W,Dt)
+        model.solve(dim=2)
+        print('2D solved')
+        model.save()
+        visualise.plot2D_frame(model.tmax, model)
+        print('2D saved')
     else:
         print('Error shape not present')
         return
@@ -113,26 +128,14 @@ def get_data(file):
     last_mean,last_stdv = analyse.mean_velocity(model)
     analyse.pd_file(model, [net_last,ms_last,peak_number, r_last, m_last,last_mean,last_stdv])
     return
-#model = todo(500,20,128,0.3,0.9,'grad',[-1,1],'q2D','flat')[1]
-model = agent.set_model('data_q2D_p_0.6_1.5_0')
-visualise.animate(model,False,'phase')
-visualise.animate(model,False,'vorticity')
-#model = agent.set_model('data_q2D_D_0_0.3_0')
-#get_data('data_2D_D_0.4_0.5_0')
-#print(model.theta.T[99][20] -model.theta.T[98][20])
-#analyse.pd_file(model,[])
-#file = np.array(pickle.load(open('vortices/pd_2D_grad_500.p', 'rb')))
-#print(file)
-#listoff()
 
-#phase_diagram()
-#print(model.omegas)
-#css = analyse.css_t(model,499)
-#plt.plot(np.array(css[0]).T[1])
-#print(len(signal.find_peaks(np.array(css[0]).T[1])[0]))
-#visualise.animate(model,False,'vorticity')
-#plt.show()
-#ctxy = analyse.cat_xy(model,10,10)
-#plt.plot(ctxy)
-#plt.show()
+
+#omegas= agent.set_model('temporal/data_temp_noise_flat_0.05_0_0.1').omegas
+#model = todo(100,64,64,0,0,'grad',[0,0],'cKPZ_2D','rand',which_omegas=False,omegas=None)[1]
+model = todo(500,64,64,0,0,'flat',[0,0],'2D','vort',which_omegas=False,omegas=None)[1]
+
+visualise.animate(model,False,'phase')
+
+
+
 
