@@ -38,9 +38,15 @@ def plot1D_frame(model,t,save=True):
     portion = model.theta[int(len(phases)/2)][int(9*model.tmax/10):model.tmax]
     time_d = -1*(portion[0] - portion[-1]) / len(portion)
     print(f'{time_d=}')
-    if k!=0:
+    if k!=0 :
         c = time_d/gradient
         print(f'{c=}')
+        print(c/(model.eta)-gradient)
+        print(c**2/model.eta)
+
+        if model.eta != 0:
+            fac = (len(phases)*c)/(model.eta*2*np.pi)
+            print(f'{fac=}')
     cbar = fig.colorbar(im1, ticks=[0, np.pi, 2*np.pi], orientation='vertical')
     cbar.set_ticklabels([r'$0$', r'$\pi$', r'$2\pi$'])
     axs[1].set_xlabel('$x$')
@@ -53,7 +59,7 @@ def plot1D_frame(model,t,save=True):
 
 def plot2D_frame(t,model,save=True):
     if model.dim =='temp_noise':
-        res = 1000
+        res = 100
     else:
         res=1
     print(np.shape(model.theta))
@@ -222,7 +228,7 @@ def animate(model,rem,variable='phase'):
         plt.title(r'${}, t={}$, $\sigma={}, \eta ={}$'.format(variable,t, model.sigma, model.eta))
         return [im]
     if model.dim == 'temp_noise':
-        res = 1000
+        res = 100
         print('temp_noise anim')
         anim = am.FuncAnimation(fig, update, frames=[i for i in range(0,int(model.tmax/res)-1)], repeat=False)
     else:
@@ -233,7 +239,7 @@ def animate(model,rem,variable='phase'):
     title = get_title(model, variable,model.count)
     if rem:
         title = title + '_alt'
-    factor = 1/(model.Dt*res)
+    factor = 1/(model.Dt)#*res)
     anim.save('animations/' + title + '.mp4', fps=25*factor, extra_args=['-vcodec', 'libx264'])
     print(str(variable) + ' animation saved')
     return title
@@ -249,7 +255,7 @@ def get_title(model,variable='phase',count=0):
         elif model.grad == [0, 0]:
             val = 'D'
         else:
-            val = 'grad'
+            val = str(model.grad)
     elif model.bc == 'fix':
         val = 'fix'
     elif model.bc == 'periodic':
@@ -260,9 +266,9 @@ def get_title(model,variable='phase',count=0):
         print('Error bc not present')
         return
     if model.dim == 'temp_noise':
-        title = r'temporal/{}_{}_{}_{}_{}_{}'.format(variable, model.dim, val, model.sigma, model.eta,model.W)
+        title = r'temporal/{}_{}_{}_{}_{}_{}_{}'.format(variable+str(model.tmax), model.dim + str(model.N), val, model.sigma, model.eta,model.W,str(model.grad))
     else:
-        title = r'{}_{}_{}_{}_{}'.format(variable, model.dim, val, model.sigma, model.eta)
+        title = r'{}_{}_{}_{}_{}_{}'.format(variable+ str(model.tmax), model.dim+ str(model.N), val, model.sigma, model.eta,str(model.grad))
     if count > 0:
         title = title + '_v' + str(count)
     return title

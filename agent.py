@@ -5,9 +5,11 @@ import os
 from datetime import datetime
 import visualise
 
+epsilon = 1
 
 class Kuramoto:
     def __init__(self, tmax, N, M=1, sigma=0.43, eta=0.04, bc='fix', grad=None, dim='Unspecified',init='rand',which_omegas=False, omegas=None):
+        self.W = 0
         if grad is None:
             grad = [0, 0]
         self.N = N
@@ -44,7 +46,6 @@ class Kuramoto:
 
         if sigma == 0:
             if bc == 'fix' or bc == 'periodic' or grad == [0,0]:
-
                 self.theta = np.random.random(N*M) * 2 * np.pi
                 for j in range(0,M*N,M):
                     self.theta[j] = 0
@@ -58,15 +59,18 @@ class Kuramoto:
             self.theta = np.linspace(0,2*np.pi,N*M)
         elif init == 'vort':
             self.theta = np.zeros((N * M))  # np.pi*np.random.normal(size=(Lx*Ly))
-            loc = [28,0]
-            self.theta += ((self.make_topo_defect(1, N, M, loc[0], M/2+loc[1]) + self.make_topo_defect(-1, N, M, N-loc[0], M/2-loc[1])) % (2* np.pi)).flatten()
+            self.loc = self.grad#[16,0]
+            self.theta += ((self.make_topo_defect(1, N, M, self.loc[0], M/2) + self.make_topo_defect(-1, N, M, N-self.loc[0], M/2)) % (2* np.pi)).flatten()
+            self.theta += np.sign(self.loc[1]) * np.array([np.linspace(0,abs(self.loc[1])*2*np.pi,N) for i in range(M)]).flatten()
+            #self.theta += ((self.make_topo_defect(1, N, M, self.loc[0], 3*M/4+self.loc[1]) + self.make_topo_defect(-1, N, M, N-self.loc[0], 3*M/4-self.loc[1])) % (2* np.pi)).flatten()
+
         elif init == 'flat':
             self.theta = np.zeros((N * M)) + 0.5
         # elif sigma == 0 and init == 'const':
         #    self.theta = [np.pi for i in range(N*M)]
 
     def K_phi(self, phi):
-        return np.sin(phi) + self.eta * (1 - np.cos(phi))
+        return epsilon*(np.sin(phi) + self.eta * (1 - np.cos(phi)))
 
     def rhs(self, t, theta):
         # print(f'theta is {theta}')
@@ -156,12 +160,12 @@ class Kuramoto:
         for file in files:
             if title == file[:-4]:
                 count += 1
-        title = r'{}_c{}_{}_{}'.format(date, count, self.sigma, self.eta)
+        title = r'{}_c{}_{}_{}_{}'.format(date, count, self.sigma, self.eta,self.grad)
         title = self.find_title()
         self.title = title
 
         stats = {'N': self.N, 'M': self.M, 'tmax': self.tmax, 'sigma': self.sigma,
-                 'eta': self.eta, 'bc': self.bc, 'grad': self.grad, 'dim': self.dim, 'count':self.count}
+                 'eta': self.eta, 'bc': self.bc, 'grad': self.grad, 'dim': self.dim, 'count':self.count,'W':self.W,'Dt':self.Dt}
         print(stats)
         print(title)
         data = {'stats': stats, 'omegas': self.omegas, 'theta': self.theta}
@@ -179,7 +183,7 @@ class Kuramoto:
         return np.transpose(self.theta)[t] % (2 * np.pi)
 
     def find_title(self):
-        title = visualise.get_title(self,'data')
+        title = visualise.get_title(self,'data') #+ '_' + str(self.grad)
         chars = len(list(title))
         files = os.listdir('data')
         files.sort()
@@ -191,23 +195,13 @@ class Kuramoto:
         self.count = count
         return title
 
-
-
-    def find_vorticity(self):
-        for t in range(self.tmax):
-            theta = np.reshape(self.theta.T[t], (self.N, self.M))
-            self.v_x[t] = theta - np.roll(theta, 1, axis=1)
-            self.v_y[t] = theta - np.roll(theta, 1, axis=0)
-            self.v_x[t][:,0] = 0 #np.array([self.grad[0] for i in range(len(theta[:,0]))])
-            #self.v_y[t][0,:] = 0
-            self.vorticity[t] = (self.v_y[t] - np.roll(self.v_y[t],1,axis=1)) - (self.v_x[t] - np.roll(self.v_x[t],1,axis=0))
-            ##self.vorticity[t] = self.vorticity[t] - self.vorticity[0]
-
-
     def find_vorticity_2(self,div=False):
+        self.v_x = np.zeros([len(self.theta.T), self.N, self.M])
+        self.v_y = np.zeros([len(self.theta.T), self.N, self.M])
+        self.vorticity = np.zeros([len(self.theta.T), self.N, self.M])
         if div:
             self.find_divergence()
-        for t in range(self.tmax):
+        for t in range(len(self.theta.T)):
             if not div:
                 theta = np.reshape(self.theta.T[t], (self.N, self.M))
             else:
@@ -244,7 +238,7 @@ class Kuramoto:
 
 class cKPZ(Kuramoto):
     def K_phi(self,phi):
-        return np.angle(np.exp(1j*phi)) + self.eta*(np.angle(np.exp(1j*phi))**2/2)
+        return epsilon*(np.angle(np.exp(1j*phi)) + self.eta*(np.angle(np.exp(1j*phi))**2/2))
 
 class temp_noise(Kuramoto):
     def __init__(self, tmax, N, M=1, sigma=0.43, eta=0.04, bc='fix', grad=None, dim='Unspecified',init='rand',which_omegas=False, omegas=None,W=0.,Dt=1):
@@ -253,7 +247,7 @@ class temp_noise(Kuramoto):
         self.Dt = Dt
         #self.velocity = np.zeros(N*M)
     def solve(self,dim=1):
-        res = 1000
+        res = 100
         theta_init = self.theta
         self.theta = np.zeros([int(self.tmax), len(theta_init)])
         self.theta[0] = theta_init
@@ -308,7 +302,7 @@ class temp_noiseKPZ(cKPZ):
         self.Dt = Dt
         #self.velocity = np.zeros(N*M)
     def solve(self,dim=1):
-        res = 1000
+        res = 100
         theta_init = self.theta
         self.theta = np.zeros([int(self.tmax), len(theta_init)])
         self.theta[0] = theta_init
@@ -388,7 +382,11 @@ def read(title):
 
 def set_model(title):
     file = read(title)
-    uploaded = Kuramoto(file['stats']['tmax'], file['stats']['N'],file['stats']['M'],file['stats']['sigma'],
+    if title[:8] == 'temporal':
+        uploaded = temp_noise(file['stats']['tmax'], file['stats']['N'], file['stats']['M'], file['stats']['sigma'],
+                            file['stats']['eta'], file['stats']['bc'], file['stats']['grad'], file['stats']['dim'],W=file['stats']['W'],Dt=file['stats']['Dt'])
+    else:
+        uploaded = Kuramoto(file['stats']['tmax'], file['stats']['N'],file['stats']['M'],file['stats']['sigma'],
                         file['stats']['eta'],file['stats']['bc'],file['stats']['grad'],file['stats']['dim'])
     uploaded.omegas = file['omegas']
     uploaded.theta = file['theta']
@@ -580,3 +578,16 @@ class Branch(Kuramoto):
                 #            theta[i, j] = np.pi/2
                  #       else:
                   #          theta[i, j] = -np.pi/2
+        #def find_vorticity(self):
+        #    self.v_x = np.zeros([self.tmax, self.N, self.M])
+        #    self.v_y = np.zeros([self.tmax, self.N, self.M])
+        #    self.vorticity = np.zeros([self.tmax, self.N, self.M])
+        #    for t in range(self.tmax):
+        #        theta = np.reshape(self.theta.T[t], (self.N, self.M))
+        #        self.v_x[t] = theta - np.roll(theta, 1, axis=1)
+        #        self.v_y[t] = theta - np.roll(theta, 1, axis=0)
+        #        self.v_x[t][:, 0] = 0  # np.array([self.grad[0] for i in range(len(theta[:,0]))])
+        #        # self.v_y[t][0,:] = 0
+        #        self.vorticity[t] = (self.v_y[t] - np.roll(self.v_y[t], 1, axis=1)) - (
+        #                    self.v_x[t] - np.roll(self.v_x[t], 1, axis=0))
+                ##self.vorticity[t] = self.vorticity[t] - self.vorticity[0]

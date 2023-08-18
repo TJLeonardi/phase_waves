@@ -43,6 +43,8 @@ def vorsites(model,frame,threshold=0.01):
     return sites
 
 
+
+
 def interdistances(model,frame):
     sites = vorsites(model,frame)
     distances = []
@@ -222,6 +224,7 @@ def plot_m(model):
 
 def get_velocity(model):
     #velocity = np.array([np.zeros(model.N*model.M) for t in range(model.tmax - 1)])
+    model.velocity = np.zeros(model.tmax,model.N*model.M)
     for t in range(model.tmax-1):
         model.velocity[t] = np.subtract(model.theta.T[t+1] , model.theta.T[t] )
     model.velocity = model.velocity.reshape(model.tmax-1,model.N,model.M)

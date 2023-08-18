@@ -2,6 +2,7 @@ import numpy as np
 from scipy.integrate import solve_ivp
 import matplotlib.pyplot as plt
 import visualise
+from scipy.integrate import solve_bvp
 
 factor = 0.1
 E = 1
@@ -62,7 +63,54 @@ def solve(dx):
         psi[x + 1] = psi[x] + u[x] * dx
 
     print(psi)
-sol = solve_ivp(lifschitz, [0, tmax], psi_init, method='LSODA', t_eval=range(tmax)).y.T
-np.shape(sol)
-plt.plot(sol[tmax-1])
+sigma = 0.1
+def function(x,y,p):
+    K = p[0]
+    E_0 = - 0.5*K**2
+    E = E_0 - sigma / (2 * K) ## ground state solution
+    E_0 = -1      ### trial periodic solution
+    E = p[0]
+
+    factor = sigma/(E_0-E)
+    out = np.vstack((y[1], -2*E_0*y[0]-2*factor*y[0]**3))
+    return out
+def bc(ya,yb,p):
+    K = p[0]
+    #grad = (0.5*K)**0.5 * K * np.tanh(K)/np.cosh(K)
+    #grad = 0.3
+    grad= 1
+    return np.array([ya[0]-yb[0],ya[1]-grad,yb[1]-grad])
+
+x = np.linspace(-1, 1, 5)
+y_a = np.zeros((2, x.size))
+
+y_b = np.zeros((2, x.size))
+
+y_b[0] = 0.5
+p_0 = 1
+res_a = solve_bvp(function, bc, x, y_a,p=[p_0])
+res_b = solve_bvp(function, bc, x, y_b,p=[p_0])
+x_plot = np.linspace(-1, 1, 200)
+y_plot_a = res_a.sol(x_plot)[0]
+y_plot_b = res_b.sol(x_plot)[0]
+fac = res_b.p[0]
+print(fac)
+y_plot_c = ((fac/2)**0.5) * np.divide(1,np.cosh(fac*x_plot))
+y_plot_d = np.log(abs(y_plot_b))
+plt.plot(x_plot, y_plot_a, label='y_a')
+plt.plot(x_plot, y_plot_b, label='y_b')
+plt.plot(x_plot, y_plot_c, label='y_c')
+plt.plot(x_plot, y_plot_d, label='y_d (=ln(|y_b|)')
+
+
+plt.legend()
+plt.xlabel("x")
+plt.ylabel("y")
 plt.show()
+
+
+#sol = solve_ivp(lifschitz, [0, tmax], psi_init, method='LSODA', t_eval=range(tmax)).y.T
+#np.shape(sol)
+#plt.plot(sol[tmax-1])
+#plt.show()
+
